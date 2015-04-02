@@ -468,21 +468,41 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
     }
 
     DropCapabilitiesBoundingSet(env);
-
+#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+    bool use_native_bridge = !is_system_server && android::NativeBridgeAvailable();
+#else
     bool use_native_bridge = !is_system_server && (instructionSet != NULL)
-        && android::NativeBridgeAvailable();
+            && android::NativeBridgeAvailable();
+#endif
     if (use_native_bridge) {
+#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+      if (instructionSet != NULL) {
+        ScopedUtfChars isa_string(env, instructionSet);
+        use_native_bridge = android::NeedsNativeBridge(isa_string.c_str());
+      } else {
+      use_native_bridge = android::NeedsNativeBridge(NULL);
+      instructionSet = env->NewStringUTF("arm"
+#ifdef __LP64__
+          "64"
+#endif
+        );
+     }
+#else
       ScopedUtfChars isa_string(env, instructionSet);
       use_native_bridge = android::NeedsNativeBridge(isa_string.c_str());
-    }
+#endif
+     }
+
+#ifndef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
     if (use_native_bridge && dataDir == NULL) {
-      // dataDir should never be null if we need to use a native bridge.
-      // In general, dataDir will never be null for normal applications. It can only happen in
-      // special cases (for isolated processes which are not associated with any app). These are
-      // launched by the framework and should not be emulated anyway.
-      use_native_bridge = false;
-      ALOGW("Native bridge will not be used because dataDir == NULL.");
+        // dataDir should never be null if we need to use a native bridge.
+        // In general, dataDir will never be null for normal applications. It can only happen in
+        // special cases (for isolated processes which are not associated with any app). These are
+        // launched by the framework and should not be emulated anyway.
+        use_native_bridge = false;
+        ALOGW("Native bridge will not be used because dataDir == NULL.");
     }
+#endif
 
     if (!MountEmulatedStorage(uid, mount_external, use_native_bridge)) {
       ALOGW("Failed to mount emulated storage: %s", strerror(errno));
@@ -515,8 +535,16 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
 
     if (use_native_bridge) {
       ScopedUtfChars isa_string(env, instructionSet);
-      ScopedUtfChars data_dir(env, dataDir);
-      android::PreInitializeNativeBridge(data_dir.c_str(), isa_string.c_str());
+#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+      if (dataDir != NULL) {
+#endif
+          ScopedUtfChars data_dir(env, dataDir);
+          android::PreInitializeNativeBridge(data_dir.c_str(), isa_string.c_str());
+#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+      } else {
+          android::PreInitializeNativeBridge(NULL, isa_string.c_str());
+      }
+#endif
     }
 
     int rc = setresgid(gid, gid, gid);
