@@ -391,7 +391,9 @@ public final class ActivityManagerService extends ActivityManagerNative
     static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     // How many bytes to write into the dropbox log before truncating
-    static final int DROPBOX_MAX_SIZE = 256 * 1024;
+    // Give userdebug builds a larger max to capture extra debug, esp. for stack dump.
+    static final int DROPBOX_MAX_SIZE =
+        SystemProperties.getInt("ro.debuggable", 0) == 1 ? 4096 * 1024 : 256 * 1024;
 
     // Access modes for handleIncomingUser.
     static final int ALLOW_NON_FULL = 0;
