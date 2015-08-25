@@ -71,7 +71,8 @@ public class Watchdog extends Thread {
         "/system/bin/servicemanager",
         "/system/bin/drmserver",
         "/system/bin/gpsd",
-        "/sbin/healthd"
+        "/sbin/healthd",
+        "/system/bin/netd"
     };
 
     static Watchdog sWatchdog;
