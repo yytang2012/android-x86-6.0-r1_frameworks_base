@@ -68,6 +68,8 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
     private static final String NAME_USB_AUDIO = "usb_audio";
     private static final String NAME_HDMI_AUDIO = "hdmi_audio";
     private static final String NAME_HDMI = "hdmi";
+    private static final String NAME_HDMI_B = "hdmi_b";
+    private static final String NAME_HDMI_C = "hdmi_c";
 
     private static final int MSG_NEW_DEVICE_STATE = 1;
     private static final int MSG_SYSTEM_READY = 2;
@@ -383,6 +385,9 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
             //
             // If the kernel does not have an "hdmi_audio" switch, just fall back on the older
             // "hdmi" switch instead.
+            // In latest kernel 4.1 "hdmi_b" & "hdmi_c" are the switch names created, if we are
+            // not able to find "hdmi" & "hdmi_audio" for backward compatability, then check
+            // if "hdmi_b" and "hdmi_c" exist or not.
             uei = new UEventInfo(NAME_HDMI_AUDIO, BIT_HDMI_AUDIO, 0, 0);
             if (uei.checkSwitchExists()) {
                 retVal.add(uei);
@@ -391,7 +396,16 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
                 if (uei.checkSwitchExists()) {
                     retVal.add(uei);
                 } else {
-                    Slog.w(TAG, "This kernel does not have HDMI audio support");
+                    uei = new UEventInfo(NAME_HDMI_B, BIT_HDMI_AUDIO, 0, 0);
+                    if(uei.checkSwitchExists()){
+                        retVal.add(uei);
+                    }
+                    uei = new UEventInfo(NAME_HDMI_C, BIT_HDMI_AUDIO, 0, 0);
+                    if(uei.checkSwitchExists()){
+                        retVal.add(uei);
+                    } else {
+                        Slog.w(TAG, "This kernel does not have HDMI audio support");
+                    }
                 }
             }
 
