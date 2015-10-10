@@ -28,6 +28,10 @@ LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 
 LOCAL_CFLAGS += -DU_USING_ICU_NAMESPACE=0
 
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
+endif
+
 LOCAL_SRC_FILES:= \
     AndroidRuntime.cpp \
     com_android_internal_content_NativeLibraryHelper.cpp \
