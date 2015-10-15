@@ -1048,8 +1048,12 @@ public final class SystemServer {
         context.getResources().updateConfiguration(config, metrics);
 
         try {
-            // TODO: use boot phase
-            mPowerManagerService.systemReady(mActivityManagerService.getAppOpsService());
+            // Need to synchronize with ActivityManagerService before locking on mPowerManagerService.mlock
+            // to avoid a possible dead lock with InputDispatcher.
+            synchronized (mActivityManagerService) {
+                // TODO: use boot phase
+                mPowerManagerService.systemReady(mActivityManagerService.getAppOpsService());
+            }
         } catch (Throwable e) {
             reportWtf("making Power Manager Service ready", e);
         }
