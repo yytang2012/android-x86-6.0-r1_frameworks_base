@@ -179,7 +179,17 @@ public class ZygoteInit {
 
     static void preload() {
         Log.d(TAG, "begin preload");
-        preloadClasses();
+        Thread classPreload = null;
+        if (true) {
+            classPreload = new Thread() {
+                public void run() {
+                    preloadClasses();
+                }
+            };
+            classPreload.start();
+        } else {
+            preloadClasses();
+        }
         preloadResources();
         preloadOpenGL();
         preloadSharedLibraries();
@@ -187,6 +197,11 @@ public class ZygoteInit {
         // Ask the WebViewFactory to do any initialization that must run in the zygote process,
         // for memory sharing purposes.
         WebViewFactory.prepareWebViewInZygote();
+        try {
+            if (classPreload != null)
+                classPreload.join();
+        } catch(InterruptedException ex) {
+        }
         Log.d(TAG, "end preload");
     }
 
