@@ -43,25 +43,9 @@ static struct {
     jfieldID y;
 } gPointClassInfo;
 
-static Mutex sLock;
+extern void initializeLibraryIfNeeded();
 
-static int sUnmatchedInitRequestCount = 0;
-
-static void initializeLibraryIfNeeded() {
-    Mutex::Autolock _l(sLock);
-    if (sUnmatchedInitRequestCount == 0) {
-        FPDF_InitLibrary();
-    }
-    sUnmatchedInitRequestCount++;
-}
-
-static void destroyLibraryIfNeeded() {
-    Mutex::Autolock _l(sLock);
-    sUnmatchedInitRequestCount--;
-    if (sUnmatchedInitRequestCount == 0) {
-       FPDF_DestroyLibrary();
-    }
-}
+extern void destroyLibraryIfNeeded();
 
 static int getBlock(void* param, unsigned long position, unsigned char* outBuffer,
         unsigned long size) {
