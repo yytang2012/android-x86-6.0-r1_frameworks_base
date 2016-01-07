@@ -123,6 +123,10 @@ public class AssistManager {
     }
 
     public void startAssist(Bundle args) {
+        if (mView == null) {
+            return;
+        }
+
         updateAssistInfo();
         if (mAssistComponent == null) {
             return;
