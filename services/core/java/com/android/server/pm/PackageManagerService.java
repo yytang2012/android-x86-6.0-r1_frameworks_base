@@ -15308,13 +15308,6 @@ public class PackageManagerService extends IPackageManager.Stub {
                 mSettings.dumpSharedUsersLPr(pw, packageName, permissionNames, dumpState, checkin);
             }
 
-            if (!checkin && dumpState.isDumping(DumpState.DUMP_INSTALLS) && packageName == null) {
-                // XXX should handle packageName != null by dumping only install data that
-                // the given package is involved with.
-                if (dumpState.onTitlePrinted()) pw.println();
-                mInstallerService.dump(new IndentingPrintWriter(pw, "  ", 120));
-            }
-
             if (!checkin && dumpState.isDumping(DumpState.DUMP_MESSAGES) && packageName == null) {
                 if (dumpState.onTitlePrinted()) pw.println();
                 mSettings.dumpReadMessagesLPr(pw, dumpState);
@@ -15350,6 +15343,13 @@ public class PackageManagerService extends IPackageManager.Stub {
                     IoUtils.closeQuietly(in);
                 }
             }
+        }
+
+        if (!checkin && dumpState.isDumping(DumpState.DUMP_INSTALLS) && packageName == null) {
+            // XXX should handle packageName != null by dumping only install data that
+            // the given package is involved with.
+            if (dumpState.onTitlePrinted()) pw.println();
+            mInstallerService.dump(new IndentingPrintWriter(pw, "  ", 120));
         }
     }
 
