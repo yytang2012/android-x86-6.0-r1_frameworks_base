@@ -184,7 +184,7 @@ public class Nat464Xlat extends BaseNetworkObserver {
                 !mNetwork.linkProperties.getAllInterfaceNames().contains(mIface)) {
             Slog.d(TAG, "clatd running, updating NAI for " + mIface);
             for (LinkProperties stacked: oldLp.getStackedLinks()) {
-                if (mIface.equals(stacked.getInterfaceName())) {
+                if (mIface != null && mIface.equals(stacked.getInterfaceName())) {
                     mNetwork.linkProperties.addStackedLink(stacked);
                     break;
                 }
