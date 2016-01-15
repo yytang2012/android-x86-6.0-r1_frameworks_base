@@ -1788,13 +1788,14 @@ class MountService extends IMountService.Stub
         waitForReady();
 
         synchronized (mLock) {
+            String[] fsUuidForgotten = new String[mRecords.size()];
             for (int i = 0; i < mRecords.size(); i++) {
                 final String fsUuid = mRecords.keyAt(i);
                 final VolumeRecord rec = mRecords.valueAt(i);
                 if (!TextUtils.isEmpty(rec.partGuid)) {
                     forgetPartition(rec.partGuid);
                 }
-                mCallbacks.notifyVolumeForgotten(fsUuid);
+                fsUuidForgotten[i] = fsUuid;
             }
             mRecords.clear();
 
@@ -1804,6 +1805,10 @@ class MountService extends IMountService.Stub
 
             writeSettingsLocked();
             resetIfReadyAndConnectedLocked();
+
+            for (int i = 0; i < fsUuidForgotten.length; ++i) {
+                mCallbacks.notifyVolumeForgotten(fsUuidForgotten[i]);
+            }
         }
     }
 
