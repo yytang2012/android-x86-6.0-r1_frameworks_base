@@ -4533,8 +4533,15 @@ public class AudioService extends IAudioService.Stub {
         setBluetoothA2dpOnInt(true);
         AudioSystem.setDeviceConnectionState(AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP,
                 AudioSystem.DEVICE_STATE_AVAILABLE, address, name);
-        // Reset A2DP suspend state each time a new sink is connected
-        AudioSystem.setParameters("A2dpSuspended=false");
+        if ((mScoAudioState == SCO_STATE_ACTIVATE_REQ)||
+                (mScoAudioState == SCO_STATE_ACTIVE_EXTERNAL)||
+                (mScoAudioState == SCO_STATE_ACTIVE_INTERNAL)) {
+            // In sco active state, set A2dpSuspended=true
+            AudioSystem.setParameters("A2dpSuspended=true");
+        } else {
+            // Reset A2DP suspend state each time a new sink is connected
+            AudioSystem.setParameters("A2dpSuspended=false");
+        }
         mConnectedDevices.put(
                 makeDeviceListKey(AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP, address),
                 new DeviceListSpec(AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP, name,
