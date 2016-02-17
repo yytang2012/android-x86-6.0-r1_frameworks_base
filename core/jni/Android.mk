@@ -263,6 +263,17 @@ LOCAL_SHARED_LIBRARIES += \
     libhwui \
     libdl
 
+ifeq ($(PRC_COMPATIBILITY_PACKAGE),true)
+    LOCAL_CFLAGS += -D_PRC_COMPATIBILITY_PACKAGE_
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/abipicker
+    LOCAL_SRC_FILES += abipicker/ABIPicker.cpp
+    LOCAL_POST_INSTALL_CMD := $(hide) \
+        mkdir -p $(TARGET_OUT_VENDOR)/etc/misc/; \
+        cp -f $(LOCAL_PATH)/abipicker/OEMWhiteList $(TARGET_OUT_VENDOR)/etc/misc/.OEMWhiteList; \
+        cp -f $(LOCAL_PATH)/abipicker/OEMBlackList $(TARGET_OUT_VENDOR)/etc/misc/.OEMBlackList; \
+        cp -f $(LOCAL_PATH)/abipicker/ThirdPartySO $(TARGET_OUT_VENDOR)/etc/misc/.ThirdPartySO
+endif
+
 # we need to access the private Bionic header
 # <bionic_tls.h> in com_google_android_gles_jni_GLImpl.cpp
 LOCAL_C_INCLUDES += bionic/libc/private
