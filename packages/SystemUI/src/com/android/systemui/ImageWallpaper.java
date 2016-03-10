@@ -78,7 +78,7 @@ public class ImageWallpaper extends WallpaperService {
         //noinspection PointlessBooleanExpression,ConstantConditions
         if (FIXED_SIZED_SURFACE && USE_OPENGL) {
             if (!isEmulator()) {
-                mIsHwAccelerated = ActivityManager.isHighEndGfx();
+                mIsHwAccelerated = false;
             }
         }
     }
