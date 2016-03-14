@@ -468,14 +468,14 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
     }
 
     DropCapabilitiesBoundingSet(env);
-#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
     bool use_native_bridge = !is_system_server && android::NativeBridgeAvailable();
 #else
     bool use_native_bridge = !is_system_server && (instructionSet != NULL)
             && android::NativeBridgeAvailable();
 #endif
     if (use_native_bridge) {
-#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
       if (instructionSet != NULL) {
         ScopedUtfChars isa_string(env, instructionSet);
         use_native_bridge = android::NeedsNativeBridge(isa_string.c_str());
@@ -493,7 +493,7 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
 #endif
      }
 
-#ifndef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+#ifndef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
     if (use_native_bridge && dataDir == NULL) {
         // dataDir should never be null if we need to use a native bridge.
         // In general, dataDir will never be null for normal applications. It can only happen in
@@ -535,12 +535,12 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
 
     if (use_native_bridge) {
       ScopedUtfChars isa_string(env, instructionSet);
-#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
       if (dataDir != NULL) {
 #endif
           ScopedUtfChars data_dir(env, dataDir);
           android::PreInitializeNativeBridge(data_dir.c_str(), isa_string.c_str());
-#ifdef _COMPATIBILITY_ENHANCEMENT_HOUDINI_
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
       } else {
           android::PreInitializeNativeBridge(NULL, isa_string.c_str());
       }

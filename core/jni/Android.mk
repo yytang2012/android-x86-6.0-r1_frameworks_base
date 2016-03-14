@@ -274,6 +274,10 @@ ifeq ($(PRC_COMPATIBILITY_PACKAGE),true)
         cp -f $(LOCAL_PATH)/abipicker/ThirdPartySO $(TARGET_OUT_VENDOR)/etc/misc/.ThirdPartySO
 endif
 
+ifeq ($(COMPATIBILITY_ENHANCEMENT_PACKAGE), true)
+    LOCAL_CFLAGS += -D_COMPATIBILITY_ENHANCEMENT_PACKAGE_
+endif
+
 # we need to access the private Bionic header
 # <bionic_tls.h> in com_google_android_gles_jni_GLImpl.cpp
 LOCAL_C_INCLUDES += bionic/libc/private
