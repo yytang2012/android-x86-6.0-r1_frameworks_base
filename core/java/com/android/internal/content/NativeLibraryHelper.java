@@ -77,7 +77,7 @@ public class NativeLibraryHelper {
         final boolean multiArch;
         final boolean extractNativeLibs;
         final String pkgName;
-
+        final String apkDir;
         public static Handle create(File packageFile) throws IOException {
             try {
                 final PackageLite lite = PackageParser.parsePackageLite(packageFile, 0);
@@ -88,17 +88,31 @@ public class NativeLibraryHelper {
         }
 
         public static Handle create(Package pkg) throws IOException {
+            String apkdir;
+            if ((pkg.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+                apkdir = null;
+            } else {
+                apkdir = pkg.codePath;
+            }
             return create(pkg.getAllCodePaths(),
                     (pkg.applicationInfo.flags & ApplicationInfo.FLAG_MULTIARCH) != 0,
-                    (pkg.applicationInfo.flags & ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS) != 0, pkg.packageName);
+                    (pkg.applicationInfo.flags & ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS) != 0, pkg.packageName, apkdir);
         }
 
         public static Handle create(PackageLite lite) throws IOException {
-            return create(lite.getAllCodePaths(), lite.multiArch, lite.extractNativeLibs,lite.packageName);
+            String apkdir;
+            if (lite.codePath.startsWith("/system/") ||
+                lite.codePath.startsWith("/vendor/") ||
+                lite.codePath.startsWith("/oem/")) {
+                apkdir = null;
+            } else {
+                apkdir = lite.codePath;
+            }
+            return create(lite.getAllCodePaths(), lite.multiArch, lite.extractNativeLibs,lite.packageName,apkdir);
         }
 
         private static Handle create(List<String> codePaths, boolean multiArch,
-                boolean extractNativeLibs,String pkgName) throws IOException {
+                boolean extractNativeLibs, String pkgName, String apkDir) throws IOException {
             final int size = codePaths.size();
             final long[] apkHandles = new long[size];
             for (int i = 0; i < size; i++) {
@@ -113,14 +127,15 @@ public class NativeLibraryHelper {
                 }
             }
 
-            return new Handle(apkHandles, multiArch, extractNativeLibs, pkgName);
+            return new Handle(apkHandles, multiArch, extractNativeLibs, pkgName, apkDir);
         }
 
-        Handle(long[] apkHandles, boolean multiArch, boolean extractNativeLibs, String pkgName) {
+        Handle(long[] apkHandles, boolean multiArch, boolean extractNativeLibs, String pkgName, String apkDir) {
             this.apkHandles = apkHandles;
             this.multiArch = multiArch;
             this.extractNativeLibs = extractNativeLibs;
-            this.pkgName=pkgName;
+            this.pkgName = pkgName;
+            this.apkDir = apkDir;
             mGuard.open("close");
         }
 
@@ -195,7 +210,7 @@ public class NativeLibraryHelper {
         for (long apkHandle : handle.apkHandles) {
             int res;
             if (true) {
-                res = nativeFindSupportedAbiReplace(apkHandle, supportedAbis, handle.pkgName);
+                res = nativeFindSupportedAbiReplace(apkHandle, supportedAbis, handle.pkgName, handle.apkDir);
             } else {
                 res = nativeFindSupportedAbi(apkHandle, supportedAbis);
             }
@@ -223,7 +238,7 @@ public class NativeLibraryHelper {
 
     private native static int nativeFindSupportedAbi(long handle, String[] supportedAbis);
 
-    private native static int nativeFindSupportedAbiReplace(long handle, String[] supportedAbis,String pkgName);
+    private native static int nativeFindSupportedAbiReplace(long handle, String[] supportedAbis,String pkgName, String apkDir);
     // Convenience method to call removeNativeBinariesFromDirLI(File)
     public static void removeNativeBinariesLI(String nativeLibraryPath) {
         if (nativeLibraryPath == null) return;
