@@ -1444,6 +1444,9 @@ class WindowStateAnimator {
             }
         }
 
+        if ((w.mAttrs.flags & LayoutParams.FLAG_FULLSCREEN) != 0) {
+            updateSurfaceWindowCrop(recoveringMemory);
+        }
     }
 
     public void prepareSurfaceLocked(final boolean recoveringMemory) {
