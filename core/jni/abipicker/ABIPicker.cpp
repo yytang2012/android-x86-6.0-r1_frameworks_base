@@ -10,14 +10,15 @@ namespace android {
 #define ARR_SIZE(x)     (sizeof(x)/sizeof(x[0]))
 
 #define SO_NAME_MAX (4096)
+
 #define IMPOSSIBLE_LIB_NAME    "/mixed/"
 #define IMPOSSIBLE_LIB_LEN  (sizeof(IMPOSSIBLE_LIB_NAME)-1)
+
 #define ARMABI      "armeabi"
 #define ARMV7ABI    "armeabi-v7a"
 #define ARM64ABI    "arm64-v8a"
 #define X86ABI      "x86"
 #define X8664ABI    "x86_64"
-#define ARMABI_NAME_PREFIX        "arm"
 
 #define APK_LIB "lib/"
 #define APK_LIB_LEN (sizeof(APK_LIB) - 1)
@@ -28,9 +29,10 @@ namespace android {
 #define P_LOG(...)
 #endif
 
-#define OEMWHITE  "/system/vendor/etc/misc/.OEMWhiteList"
-#define OEMBLACK  "/system/vendor/etc/misc/.OEMBlackList"
-#define THIRDPARTY "/system/vendor/etc/misc/.ThirdPartySO"
+#define LISTPATH    "/system/vendor/etc/misc/"
+#define OEMWHITE    LISTPATH ".OEMWhiteList"
+#define OEMBLACK    LISTPATH ".OEMBlackList"
+#define THIRDPARTY  LISTPATH ".ThirdPartySO"
 
 // load once, hold until poweroff
 static Vector <char*> thirdPartySO;
@@ -42,39 +44,6 @@ static bool blackload = false;
 
 static const char* iaRelated[] = {"intel", "intl", "atom", "x86", "x64"};
 
-//////////////////////////////////////////////////////////////////////
-void getConfig(const char* cfgFile , Vector<char*>& cfgVec) {
-    int read = -1;
-    char *line = NULL;
-    size_t len = 0;
-
-    FILE* fp = fopen(cfgFile, "r");
-    if (fp == NULL) {
-        return;
-    }
-
-    while ((read = getline(&line, &len, fp)) != -1) {
-        int i = 0 , j = 0;
-        char *cfgline = (char*)malloc(len);
-        if (!cfgline) {
-           P_LOG("malloc error");
-           break;
-        }
-        for (i = 0; i < read; i++) {
-           if (!isspace(line[i])) {
-              cfgline[j++] = line[i];
-           }
-        }
-        cfgline[j] = '\0';
-        cfgVec.push_back(cfgline);
-        P_LOG("orignal %s , vec: %s ", line, cfgline);
-    }
-    if (line != NULL)
-       free(line);
-    fclose(fp);
-}
-
-//////////////////////////////////////////////////////////////////////
 void freeAllString(Vector<char*>& list) {
     Vector<char*>::iterator it = list.begin();
     while (it != list.end()) {
@@ -87,10 +56,47 @@ void freeAllString(Vector<char*>& list) {
     }
 }
 
-//////////////////////////////////////////////////////////////////////
+void getConfig(const char* cfgFile , Vector<char*>& cfgVec) {
+    int read = -1;
+    char *line = NULL;
+    size_t len = 0;
+
+    FILE* fp = fopen(cfgFile, "r");
+    if (fp == NULL) {
+        return;
+    }
+
+    freeAllString(cfgVec);
+    cfgVec.clear();
+
+    while ((read = getline(&line, &len, fp)) != -1) {
+        int i = 0 , j = 0;
+        char *cfgline = (char*)malloc(len);
+        if (cfgline == NULL) {
+           P_LOG("malloc error");
+           break;
+        }
+        for (i = 0; i < read; i++) {
+           if (!isspace(line[i])) {
+              cfgline[j++] = line[i];
+           }
+        }
+        cfgline[j] = '\0';
+        cfgVec.push_back(cfgline);
+        P_LOG("orignal %s , vec: %s ", line, cfgline);
+    }
+
+    if (line != NULL) {
+        free(line);
+    }
+    fclose(fp);
+}
+
 bool isInOEMWhiteList(const char* pkgName) {
     bool result = false;
-    if (!pkgName) return result;
+    if (pkgName == NULL) {
+        return result;
+    }
 
     if (!whiteload) {
        getConfig(OEMWHITE, cfgWhite);
@@ -109,10 +115,11 @@ bool isInOEMWhiteList(const char* pkgName) {
     return result;
 }
 
-//////////////////////////////////////////////////////////////////////
 bool isInOEMBlackList(const char* pkgName) {
     bool result = false;
-    if (!pkgName) return result;
+    if (pkgName == NULL) {
+        return result;
+    }
 
     if (!blackload) {
        getConfig(OEMBLACK,  cfgBlack);
@@ -130,8 +137,6 @@ bool isInOEMBlackList(const char* pkgName) {
     return result;
 }
 
-
-//////////////////////////////////////////////////////////////////////
 bool isReliableLib(Vector<char*>& libList) {
     unsigned sz = libList.size();
     int len = ARR_SIZE(iaRelated);
@@ -152,8 +157,6 @@ bool isReliableLib(Vector<char*>& libList) {
     return false;
 }
 
-
-//////////////////////////////////////////////////////////////////////
 static bool isValidELF(char* buffer) {
     if (buffer[EI_MAG0] != ELFMAG0 &&
         buffer[EI_MAG1] != ELFMAG1 &&
@@ -170,11 +173,13 @@ static bool isMixedLib(char* libCur, char* buffer) {
     uint16_t machine_code = *((uint16_t*)(&buffer[ELF_MACHINE_OFFSET]));
     bool mixed = false;
     if (isX86_64) {
-        if (machine_code != EM_X86_64)
+        if (machine_code != EM_X86_64) {
             mixed = true;
+        }
     } else {
-        if (machine_code != EM_386)
+        if (machine_code != EM_386) {
             mixed = true;
+        }
     }
     return mixed;
 }
@@ -202,6 +207,7 @@ static bool isInThirdPartySOList(char* libName) {
     size_t sz = thirdPartySO.size();
     for (size_t i = 0; i < sz; i++) {
         // thirdPartySO[i] won't be NULL
+        assert(thirdPartySO[i] != NULL);
         size_t n = strlen(thirdPartySO[i]);
         // three char for ".so"
         int j = libLen - 4;
@@ -226,9 +232,8 @@ static void insertionSort(Vector<char*>& list) {
     P_LOG("in insertionSort, list size = %d\n", list.size());
 
     for (size_t i = 1; i < list.size(); i++) {
-        char* x = list[i];
-
         int j = i - 1;
+        char* x = list[i];
         P_LOG("sort 1. x=%s, i=%d, j=%d\n", x, i, j);
         while (j >= 0 && (strcmp(list[j], x) > 0)) {
             list.replaceAt(list[j], j + 1);
@@ -238,9 +243,6 @@ static void insertionSort(Vector<char*>& list) {
     }
 }
 
-
-
-//////////////////////////////////////////////////////////////////////
 // Use armRef as a reference, compare all libraries of iaRef with all
 // libraries of armRef.If the two are match or iaRef is more, iaRef
 // will be returned with *result and true is return value. Or else,
@@ -393,7 +395,9 @@ bool ABIPicker::compare3rdPartyLibList(
     }
     result = compareLibList(*iaRef3rdPartyLibList, *armRef3rdPartyLibList);
 
+    armRef3rdPartyLibList->clear();
     delete armRef3rdPartyLibList;
+    iaRef3rdPartyLibList->clear();
     delete iaRef3rdPartyLibList;
     return result;
 }
@@ -452,9 +456,9 @@ Vector<char*>* ABIPicker::getLibList(const char* abiName) {
 }
 
 
-size_t ABIPicker::getSpecficABILibCount(const char* abiName) {
+bool ABIPicker::isABILibValid(const char* abiName) {
     Vector<char*>* specificAbiLibList = getLibList(abiName);
-    return specificAbiLibList && specificAbiLibList->size();
+    return ((specificAbiLibList && specificAbiLibList->size()) > 0);
 }
 
 bool ABIPicker::foundMixedELF(const char* abiName) {
@@ -473,12 +477,10 @@ bool ABIPicker::foundMixedELF(const char* abiName) {
     return true;
 }
 
-
-//////////////////////////////////////////////////////////////////////
 ABIPicker::ABIPicker(const char* pkgName, Vector<ScopedUtfChars*> abiList) {
     mLibList = new Vector<struct libInfo*>();
     mpkgName = (char*)malloc(strlen(pkgName)+1);
-    if (!mpkgName) {
+    if (mpkgName == NULL) {
         P_LOG("ABIPicker Construct Allocated space fails");
     } else {
         snprintf(mpkgName, strlen(pkgName)+1, "%s", pkgName);
@@ -491,7 +493,7 @@ ABIPicker::ABIPicker(const char* pkgName, Vector<ScopedUtfChars*> abiList) {
 
         struct libInfo* tmp = (struct libInfo*)calloc(1,
                 sizeof(struct libInfo));
-        if (!tmp) {
+        if (tmp == NULL) {
            P_LOG("ABIPicker Construct Allocated space fail %s", (*it)->c_str());
            break;
         }
@@ -522,13 +524,13 @@ ABIPicker::~ABIPicker(void) {
         it++;
     }
     mLibList->clear();
-    delete(mLibList);
+    delete mLibList;
 }
 
 bool ABIPicker::buildNativeLibList(void* apkHandle) {
     bool ret = false;
 
-    if (!apkHandle) {
+    if (apkHandle == NULL) {
         ALOGE("apkHandle is NULL\n");
         return ret;
     }
@@ -571,13 +573,13 @@ bool ABIPicker::buildNativeLibList(void* apkHandle) {
             continue;
         }
 
-        if (!unCompBuff) {
+        if (unCompBuff != NULL) {
             free(unCompBuff);
             unCompBuff = NULL;
         }
 
         unCompBuff = (char*)malloc(unCompLen);
-        if (!unCompBuff) {
+        if (unCompBuff == NULL) {
             ALOGE("malloc failed size %d\n", unCompLen);
             ret = false;
             break;
@@ -668,7 +670,7 @@ bool ABIPicker::buildNativeLibList(void* apkHandle) {
         ret = true;
     }
 
-    if (unCompBuff) {
+    if (unCompBuff != NULL) {
         free(unCompBuff);
         unCompBuff = NULL;
     }
@@ -692,50 +694,49 @@ int ABIPicker::pickupRightABI(int sysPrefer) {
     bool x8664HasMixedELF = foundMixedELF(X8664ABI);
     bool x86HasMixedELF = foundMixedELF(X86ABI);
 
-    size_t armv7LibCount = getSpecficABILibCount(ARMV7ABI);
-    size_t armv5LibCount = getSpecficABILibCount(ARMABI);
-    size_t armv8LibCount = getSpecficABILibCount(ARM64ABI);
-    size_t x86LibCount = x86HasMixedELF ? 0 : getSpecficABILibCount(X86ABI);
-    size_t x8664LibCount = x8664HasMixedELF ? 0 : getSpecficABILibCount(X8664ABI);
-    P_LOG("armv7LibCount:%d armv5LibCount:%d armv8LibCount:%d x86LibCount:%d x8664LibCount:%d", armv7LibCount, armv5LibCount, armv8LibCount, x86LibCount, x8664LibCount);
+    bool armv7LibValid = isABILibValid(ARMV7ABI);
+    bool armv5LibValid = isABILibValid(ARMABI);
+    bool armv8LibValid = isABILibValid(ARM64ABI);
+    bool x86LibValid = x86HasMixedELF ? 0 : isABILibValid(X86ABI);
+    bool x8664LibValid = x8664HasMixedELF ? 0 : isABILibValid(X8664ABI);
 
     // in OEMBlackList, need to be supported by bt
     // but in case of armlib doesn't exist, we choose x86 or x86_64
     if (isInOEMBlackList(mpkgName)) {
-        if (armv7LibCount > 0) {
+        if (armv7LibValid) {
             return getAbiIndex(ARMV7ABI);
-        } else if (armv5LibCount > 0) {
+        } else if (armv5LibValid) {
             return getAbiIndex(ARMABI);
-        } else if (armv8LibCount > 0) {
+        } else if (armv8LibValid) {
             return getAbiIndex(ARM64ABI);
         }
     }
 
     char arm64Ref[ABI_NAME_MAX_LENGTH];
-    if (armv8LibCount > 0) {
+    if (armv8LibValid) {
         snprintf(arm64Ref, sizeof(ARM64ABI), "%s", ARM64ABI);
     } else {
         arm64Ref[0] = '\0';
     }
 
     char arm32Ref[ABI_NAME_MAX_LENGTH];
-    if (armv7LibCount > 0) {
+    if (armv7LibValid) {
         snprintf(arm32Ref, sizeof(ARMV7ABI), "%s", ARMV7ABI);
-    } else if (armv5LibCount > 0) {
+    } else if (armv5LibValid) {
         snprintf(arm32Ref, sizeof(ARMABI), "%s", ARMABI);
     } else {
         arm32Ref[0] = '\0';
     }
 
     char ia32Ref[ABI_NAME_MAX_LENGTH];
-    if (x86LibCount > 0) {
+    if (x86LibValid) {
         snprintf(ia32Ref, sizeof(X86ABI), "%s", X86ABI);
     } else {
         ia32Ref[0] = '\0';
     }
 
     char ia64Ref[ABI_NAME_MAX_LENGTH];
-    if (x8664LibCount > 0) {
+    if (x8664LibValid) {
         snprintf(ia64Ref, ABI_NAME_MAX_LENGTH, "%s", X8664ABI);
     } else {
         ia64Ref[0] = '\0';
