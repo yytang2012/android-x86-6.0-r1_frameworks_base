@@ -1444,7 +1444,8 @@ class WindowStateAnimator {
             }
         }
 
-        if ((w.mAttrs.flags & LayoutParams.FLAG_FULLSCREEN) != 0) {
+        if ((w.mAttrs.flags & LayoutParams.FLAG_FULLSCREEN) != 0
+                || w.mAttrs.type == LayoutParams.TYPE_WALLPAPER) {
             updateSurfaceWindowCrop(recoveringMemory);
         }
     }
