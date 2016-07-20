@@ -303,9 +303,6 @@ static bool MountEmulatedStorage(uid_t uid, jint mount_mode,
         return false;
     }
 
-    // Unmount storage provided by root namespace and mount requested view
-    UnmountTree("/storage");
-
     String8 storageSource;
     if (mount_mode == MOUNT_EXTERNAL_DEFAULT) {
         storageSource = "/mnt/runtime/default";
@@ -468,21 +465,41 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
     }
 
     DropCapabilitiesBoundingSet(env);
-
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
+    bool use_native_bridge = !is_system_server && android::NativeBridgeAvailable();
+#else
     bool use_native_bridge = !is_system_server && (instructionSet != NULL)
-        && android::NativeBridgeAvailable();
+            && android::NativeBridgeAvailable();
+#endif
     if (use_native_bridge) {
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
+      if (instructionSet != NULL) {
+        ScopedUtfChars isa_string(env, instructionSet);
+        use_native_bridge = android::NeedsNativeBridge(isa_string.c_str());
+      } else {
+      use_native_bridge = android::NeedsNativeBridge(NULL);
+      instructionSet = env->NewStringUTF("arm"
+#ifdef __LP64__
+          "64"
+#endif
+        );
+     }
+#else
       ScopedUtfChars isa_string(env, instructionSet);
       use_native_bridge = android::NeedsNativeBridge(isa_string.c_str());
-    }
+#endif
+     }
+
+#ifndef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
     if (use_native_bridge && dataDir == NULL) {
-      // dataDir should never be null if we need to use a native bridge.
-      // In general, dataDir will never be null for normal applications. It can only happen in
-      // special cases (for isolated processes which are not associated with any app). These are
-      // launched by the framework and should not be emulated anyway.
-      use_native_bridge = false;
-      ALOGW("Native bridge will not be used because dataDir == NULL.");
+        // dataDir should never be null if we need to use a native bridge.
+        // In general, dataDir will never be null for normal applications. It can only happen in
+        // special cases (for isolated processes which are not associated with any app). These are
+        // launched by the framework and should not be emulated anyway.
+        use_native_bridge = false;
+        ALOGW("Native bridge will not be used because dataDir == NULL.");
     }
+#endif
 
     if (!MountEmulatedStorage(uid, mount_external, use_native_bridge)) {
       ALOGW("Failed to mount emulated storage: %s", strerror(errno));
@@ -515,8 +532,16 @@ static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArra
 
     if (use_native_bridge) {
       ScopedUtfChars isa_string(env, instructionSet);
-      ScopedUtfChars data_dir(env, dataDir);
-      android::PreInitializeNativeBridge(data_dir.c_str(), isa_string.c_str());
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
+      if (dataDir != NULL) {
+#endif
+          ScopedUtfChars data_dir(env, dataDir);
+          android::PreInitializeNativeBridge(data_dir.c_str(), isa_string.c_str());
+#ifdef _COMPATIBILITY_ENHANCEMENT_PACKAGE_
+      } else {
+          android::PreInitializeNativeBridge(NULL, isa_string.c_str());
+      }
+#endif
     }
 
     int rc = setresgid(gid, gid, gid);
@@ -647,12 +672,24 @@ static jint com_android_internal_os_Zygote_nativeForkSystemServer(
   return pid;
 }
 
+static void com_android_internal_os_Zygote_nativeUnmountStorageOnInit(JNIEnv* env, jclass) {
+    // Zygote process unmount root storage space initially before every child processes are forked.
+    // Every forked child processes (include SystemServer) only mount their own root storage space
+    // And no need unmount storage operation in MountEmulatedStorage method.
+    // Zygote process does not utilize root storage spaces and unshared its mount namespace from the ART.
+
+    UnmountTree("/storage");
+    return;
+}
+
 static JNINativeMethod gMethods[] = {
     { "nativeForkAndSpecialize",
       "(II[II[[IILjava/lang/String;Ljava/lang/String;[ILjava/lang/String;Ljava/lang/String;)I",
       (void *) com_android_internal_os_Zygote_nativeForkAndSpecialize },
     { "nativeForkSystemServer", "(II[II[[IJJ)I",
-      (void *) com_android_internal_os_Zygote_nativeForkSystemServer }
+      (void *) com_android_internal_os_Zygote_nativeForkSystemServer },
+    { "nativeUnmountStorageOnInit", "()V",
+      (void *) com_android_internal_os_Zygote_nativeUnmountStorageOnInit }
 };
 
 int register_com_android_internal_os_Zygote(JNIEnv* env) {

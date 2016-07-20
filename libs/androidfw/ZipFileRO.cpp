@@ -148,6 +148,22 @@ bool ZipFileRO::startIteration(void** cookie, const char* prefix, const char* su
     return true;
 }
 
+#ifdef ZIP_NO_INTEGRITY
+ZipEntryRO ZipFileRO::nextEntryNoIntegrity(void* cookie)
+{
+    _ZipEntryRO* ze = reinterpret_cast<_ZipEntryRO*>(cookie);
+    int32_t error = NextNoIntegrity(ze->cookie, &(ze->entry), &(ze->name));
+    if (error) {
+        if (error != -1) {
+            ALOGW("Error iteration over %s: %s", mFileName, ErrorCodeString(error));
+        }
+        return NULL;
+    }
+
+    return &(ze->entry);
+}
+#endif
+
 ZipEntryRO ZipFileRO::nextEntry(void* cookie)
 {
     _ZipEntryRO* ze = reinterpret_cast<_ZipEntryRO*>(cookie);

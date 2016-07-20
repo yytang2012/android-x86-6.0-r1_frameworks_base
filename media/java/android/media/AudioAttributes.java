@@ -520,8 +520,11 @@ public final class AudioAttributes implements Parcelable {
          * instance with {@link AudioRecord#AudioRecord(AudioAttributes, AudioFormat, int)}.
          * @param preset one of {@link MediaRecorder.AudioSource#DEFAULT},
          *     {@link MediaRecorder.AudioSource#MIC}, {@link MediaRecorder.AudioSource#CAMCORDER},
-         *     {@link MediaRecorder.AudioSource#VOICE_RECOGNITION} or
-         *     {@link MediaRecorder.AudioSource#VOICE_COMMUNICATION}.
+         *     {@link MediaRecorder.AudioSource#VOICE_RECOGNITION},
+         *     {@link MediaRecorder.AudioSource#VOICE_COMMUNICATION},
+         *     {@link MediaRecorder.AudioSource.VOICE_CALL},
+         *     {@link MediaRecorder.AudioSource.VOICE_UPLINK} or
+         *     {@link MediaRecorder.AudioSource.VOICE_DOWNLINK}.
          * @return the same Builder instance.
          */
         @SystemApi
@@ -532,6 +535,9 @@ public final class AudioAttributes implements Parcelable {
                 case MediaRecorder.AudioSource.CAMCORDER:
                 case MediaRecorder.AudioSource.VOICE_RECOGNITION:
                 case MediaRecorder.AudioSource.VOICE_COMMUNICATION:
+                case MediaRecorder.AudioSource.VOICE_CALL:
+                case MediaRecorder.AudioSource.VOICE_UPLINK:
+                case MediaRecorder.AudioSource.VOICE_DOWNLINK:
                     mSource = preset;
                     break;
                 default:

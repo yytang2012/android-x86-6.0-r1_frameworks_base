@@ -140,14 +140,15 @@ void RenderProxy::setName(const char* name) {
 }
 
 CREATE_BRIDGE2(initialize, CanvasContext* context, ANativeWindow* window) {
-    return (void*) args->context->initialize(args->window);
+    args->context->initialize(args->window);
+    return nullptr;
 }
 
-bool RenderProxy::initialize(const sp<ANativeWindow>& window) {
+void RenderProxy::initialize(const sp<ANativeWindow>& window) {
     SETUP_TASK(initialize);
     args->context = mContext;
     args->window = window.get();
-    return (bool) postAndWait(task);
+    post(task);
 }
 
 CREATE_BRIDGE2(updateSurface, CanvasContext* context, ANativeWindow* window) {
@@ -384,6 +385,12 @@ void RenderProxy::fence() {
     postAndWait(task);
 }
 
+void RenderProxy::staticFence() {
+    SETUP_TASK(fence);
+    UNUSED(args);
+    staticPostAndWait(task);
+}
+
 CREATE_BRIDGE1(stopDrawing, CanvasContext* context) {
     args->context->stopDrawing();
     return nullptr;
@@ -442,7 +449,7 @@ void RenderProxy::resetProfileInfo() {
 CREATE_BRIDGE2(dumpGraphicsMemory, int fd, RenderThread* thread) {
     args->thread->jankTracker().dump(args->fd);
 
-    FILE *file = fdopen(args->fd, "a");
+    FILE *file = fdopen(dup(args->fd), "a");
     if (Caches::hasInstance()) {
         String8 cachesLog;
         Caches::getInstance().dumpMemoryUsage(cachesLog);
@@ -451,6 +458,7 @@ CREATE_BRIDGE2(dumpGraphicsMemory, int fd, RenderThread* thread) {
         fprintf(file, "\nNo caches instance.\n");
     }
     fflush(file);
+    fclose(file);
     return nullptr;
 }
 

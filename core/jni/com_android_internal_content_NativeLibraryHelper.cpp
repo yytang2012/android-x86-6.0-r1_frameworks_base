@@ -37,6 +37,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#ifdef _PRC_COMPATIBILITY_PACKAGE_
+#include "ABIPicker.h"
+#endif
+
 
 #define APK_LIB "lib/"
 #define APK_LIB_LEN (sizeof(APK_LIB) - 1)
@@ -55,6 +59,11 @@
 #define TMP_FILE_PATTERN "/tmp.XXXXXX"
 #define TMP_FILE_PATTERN_LEN (sizeof(TMP_FILE_PATTERN) - 1)
 
+#ifdef _PRC_COMPATIBILITY_PACKAGE_
+#define X86ABI     "x86"
+#define X8664ABI   "x86_64"
+#endif
+
 namespace android {
 
 // These match PackageManager.java install codes
@@ -68,7 +77,11 @@ enum install_status_t {
     NO_NATIVE_LIBRARIES = -114
 };
 
-typedef install_status_t (*iterFunc)(JNIEnv*, void*, ZipFileRO*, ZipEntryRO, const char*);
+typedef install_status_t (*iterFunc)(JNIEnv*, void*, ZipFileRO*, ZipEntryRO, const char*
+#ifdef ZIP_NO_INTEGRITY
+, const char*
+#endif
+);
 
 // Equivalent to android.os.FileUtils.isFilenameSafe
 static bool
@@ -138,6 +151,9 @@ isFileDifferent(const char* filePath, uint32_t fileSize, time_t modifiedTime,
     uLong crc = crc32(0L, Z_NULL, 0);
     unsigned char crcBuffer[16384];
     ssize_t numBytes;
+#ifdef ZIP_NO_INTEGRITY
+    posix_fadvise64(fd, 0, fileSize, POSIX_FADV_WILLNEED);
+#endif
     while ((numBytes = TEMP_FAILURE_RETRY(read(fd, crcBuffer, sizeof(crcBuffer)))) > 0) {
         crc = crc32(crc, crcBuffer, numBytes);
     }
@@ -153,7 +169,11 @@ isFileDifferent(const char* filePath, uint32_t fileSize, time_t modifiedTime,
 }
 
 static install_status_t
-sumFiles(JNIEnv*, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntry, const char*)
+sumFiles(JNIEnv*, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntry, const char*
+#ifdef ZIP_NO_INTEGRITY
+, const char*
+#endif
+)
 {
     size_t* total = (size_t*) arg;
     uint32_t uncompLen;
@@ -173,7 +193,11 @@ sumFiles(JNIEnv*, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntry, const char
  * This function assumes the library and path names passed in are considered safe.
  */
 static install_status_t
-copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntry, const char* fileName)
+copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntry, const char* fileName
+#ifdef ZIP_NO_INTEGRITY
+, const char* entryName
+#endif
+)
 {
     void** args = reinterpret_cast<void**>(arg);
     jstring* javaNativeLibPath = (jstring*) args[0];
@@ -239,6 +263,13 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
         return INSTALL_SUCCEEDED;
     }
 
+#ifdef ZIP_NO_INTEGRITY
+    // do integrity check for the current entry
+    if ((zipEntry = zipFile->findEntryByName(entryName)) == NULL) {
+        ALOGD("Couldn't pass integrity check for library");
+        return INSTALL_FAILED_INTERNAL_ERROR;
+    }
+#endif
     char localTmpFileName[nativeLibPath.size() + TMP_FILE_PATTERN_LEN + 2];
     if (strlcpy(localTmpFileName, nativeLibPath.c_str(), sizeof(localTmpFileName))
             != nativeLibPath.size()) {
@@ -329,6 +360,55 @@ public:
         return new NativeLibrariesIterator(zipFile, cookie);
     }
 
+#ifdef ZIP_NO_INTEGRITY
+    ZipEntryRO nextNoIntegrity() {
+        ZipEntryRO next = NULL;
+        while ((next = mZipFile->nextEntryNoIntegrity(mCookie)) != NULL) {
+            // Make sure this entry has a filename.
+            if (mZipFile->getEntryFileName(next, fileName, sizeof(fileName))) {
+                continue;
+            }
+
+            // Make sure we're in the lib directory of the ZIP.
+            if (strncmp(fileName, APK_LIB, APK_LIB_LEN)) {
+                continue;
+            }
+
+            // Make sure the filename is at least to the minimum library name size.
+            const size_t fileNameLen = strlen(fileName);
+            static const size_t minLength = APK_LIB_LEN + 2 + LIB_PREFIX_LEN + 1 + LIB_SUFFIX_LEN;
+            if (fileNameLen < minLength) {
+                continue;
+            }
+
+            const char* lastSlash = strrchr(fileName, '/');
+            ALOG_ASSERT(lastSlash != NULL, "last slash was null somehow for %s\n", fileName);
+
+            // Exception: If we find the gdbserver binary, return it.
+            if (!strncmp(lastSlash + 1, GDBSERVER, GDBSERVER_LEN)) {
+                mLastSlash = lastSlash;
+                break;
+            }
+
+            // Make sure the filename starts with lib and ends with ".so".
+            if (strncmp(fileName + fileNameLen - LIB_SUFFIX_LEN, LIB_SUFFIX, LIB_SUFFIX_LEN)
+                || strncmp(lastSlash, LIB_PREFIX, LIB_PREFIX_LEN)) {
+                continue;
+            }
+
+            // Make sure the filename is safe.
+            if (!isFilenameSafe(lastSlash + 1)) {
+                continue;
+            }
+
+            mLastSlash = lastSlash;
+            break;
+        }
+
+        return next;
+    }
+#endif
+
     ZipEntryRO next() {
         ZipEntryRO next = NULL;
         while ((next = mZipFile->nextEntry(mCookie)) != NULL) {
@@ -410,7 +490,11 @@ iterateOverNativeFiles(JNIEnv *env, jlong apkHandle, jstring javaCpuAbi,
         return INSTALL_FAILED_INVALID_APK;
     }
     ZipEntryRO entry = NULL;
+#ifdef ZIP_NO_INTEGRITY
+    while ((entry = it->nextNoIntegrity()) != NULL) {
+#else
     while ((entry = it->next()) != NULL) {
+#endif
         const char* fileName = it->currentEntry();
         const char* lastSlash = it->lastSlash();
 
@@ -419,8 +503,11 @@ iterateOverNativeFiles(JNIEnv *env, jlong apkHandle, jstring javaCpuAbi,
         const size_t cpuAbiRegionSize = lastSlash - cpuAbiOffset;
 
         if (cpuAbi.size() == cpuAbiRegionSize && !strncmp(cpuAbiOffset, cpuAbi.c_str(), cpuAbiRegionSize)) {
-            install_status_t ret = callFunc(env, callArg, zipFile, entry, lastSlash + 1);
-
+            install_status_t ret = callFunc(env, callArg, zipFile, entry, lastSlash + 1
+#ifdef ZIP_NO_INTEGRITY
+               , fileName
+#endif
+               );
             if (ret != INSTALL_SUCCEEDED) {
                 ALOGV("Failure for entry %s", lastSlash + 1);
                 return ret;
@@ -453,7 +540,11 @@ static int findSupportedAbi(JNIEnv *env, jlong apkHandle, jobjectArray supported
 
     ZipEntryRO entry = NULL;
     int status = NO_NATIVE_LIBRARIES;
+#ifdef ZIP_NO_INTEGRITY
+    while ((entry = it->nextNoIntegrity()) != NULL) {
+#else
     while ((entry = it->next()) != NULL) {
+#endif
         // We're currently in the lib/ directory of the APK, so it does have some native
         // code. We should return INSTALL_FAILED_NO_MATCHING_ABIS if none of the
         // libraries match.
@@ -511,6 +602,104 @@ com_android_internal_content_NativeLibraryHelper_findSupportedAbi(JNIEnv *env, j
         jlong apkHandle, jobjectArray javaCpuAbisToSearch)
 {
     return (jint) findSupportedAbi(env, apkHandle, javaCpuAbisToSearch);
+}
+
+static jint
+com_android_internal_content_NativeLibraryHelper_findSupportedAbi_replace(
+        JNIEnv *env,
+        jclass clazz,
+        jlong apkHandle,
+        jobjectArray javaCpuAbisToSearch,
+        jstring apkPkgName,
+        jstring apkDir)
+{
+#ifdef _PRC_COMPATIBILITY_PACKAGE_
+
+    int abiType = findSupportedAbi(env, apkHandle, javaCpuAbisToSearch);
+    if (apkDir == NULL) {
+        return (jint)abiType;
+    }
+
+    char abiFlag[256] = {'\0'};
+    ScopedUtfChars apkdir(env, apkDir);
+    size_t apkdir_size = apkdir.size();
+    const int numAbis = env->GetArrayLength(javaCpuAbisToSearch);
+    Vector<ScopedUtfChars*> supportedAbis;
+
+    assert(apkdir_size < 256 - 15);
+    if (strlcpy(abiFlag, apkdir.c_str(), 256) != apkdir.size()) {
+        return (jint)abiType;
+    }
+
+    int abiIndex = 0;
+    abiFlag[apkdir_size] = '/';
+    abiFlag[apkdir_size + 1] = '.';
+    for (abiIndex = 0; abiIndex < numAbis; abiIndex++) {
+        ScopedUtfChars* abiName = new ScopedUtfChars(env,
+                 (jstring)env->GetObjectArrayElement(javaCpuAbisToSearch, abiIndex));
+        supportedAbis.push_back(abiName);
+        if (abiName == NULL || abiName->c_str() == NULL || abiName->size() <= 0) {
+            break;
+        }
+        if ((strlcpy(abiFlag + apkdir_size + 2, abiName->c_str(), 256 - apkdir_size - 2)
+                    == abiName->size()) && (access(abiFlag, F_OK) == 0)) {
+            abiType = abiIndex;
+            break;
+        }
+    }
+
+    if (abiIndex < numAbis) {
+        for (int j = 0; j < abiIndex; ++j) {
+            if (supportedAbis[j] != NULL) {
+                delete supportedAbis[j];
+            }
+        }
+        return (jint)abiType;
+    }
+
+    do {
+        if (abiType < 0 || abiType >= numAbis){
+            break;
+        }
+
+        if (0 != strcmp(supportedAbis[abiType]->c_str(), X86ABI) &&
+                0 != strcmp(supportedAbis[abiType]->c_str(), X8664ABI)) {
+            break;
+        }
+
+        ScopedUtfChars name(env, apkPkgName);
+        if (NULL == name.c_str()) {
+            break;
+        }
+
+        if (isInOEMWhiteList(name.c_str())) {
+            break;
+        }
+
+        ABIPicker picker(name.c_str(),supportedAbis);
+        if (!picker.buildNativeLibList((void*)apkHandle)) {
+            break;
+        }
+
+        abiType = picker.pickupRightABI(abiType);
+        if (abiType >= 0 && abiType < numAbis &&
+                (strlcpy(abiFlag + apkdir_size + 2, supportedAbis[abiType]->c_str(),
+                         256 - apkdir_size - 2) == supportedAbis[abiType]->size())) {
+            int flagFp = creat(abiFlag, 0644);
+            if (flagFp != -1) {
+                close(flagFp);
+            }
+        }
+
+    } while(0);
+
+    for (int i = 0; i < numAbis; ++i) {
+        delete supportedAbis[i];
+    }
+    return (jint)abiType;
+#else
+    return (jint)findSupportedAbi(env, apkHandle, javaCpuAbisToSearch);
+#endif
 }
 
 enum bitcode_scan_result_t {
@@ -579,6 +768,9 @@ static JNINativeMethod gMethods[] = {
             (void *)com_android_internal_content_NativeLibraryHelper_findSupportedAbi},
     {"hasRenderscriptBitcode", "(J)I",
             (void *)com_android_internal_content_NativeLibraryHelper_hasRenderscriptBitcode},
+    {"nativeFindSupportedAbiReplace",
+            "(J[Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I",
+            (void *)com_android_internal_content_NativeLibraryHelper_findSupportedAbi_replace},
 };
 
 

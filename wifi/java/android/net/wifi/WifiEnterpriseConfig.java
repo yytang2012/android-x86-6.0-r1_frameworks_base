@@ -269,6 +269,7 @@ public class WifiEnterpriseConfig implements Parcelable {
         /** Generic Token Card */
         public static final int GTC         = 4;
         private static final String PREFIX = "auth=";
+        private static final String EAP_PREFIX = "autheap=";
         /** @hide */
         public static final String[] strings = {EMPTY_VALUE, "PAP", "MSCHAP",
                 "MSCHAPV2", "GTC" };
@@ -357,9 +358,12 @@ public class WifiEnterpriseConfig implements Parcelable {
             case Phase2.PAP:
             case Phase2.MSCHAP:
             case Phase2.MSCHAPV2:
-            case Phase2.GTC:
                 mFields.put(PHASE2_KEY, convertToQuotedString(
                         Phase2.PREFIX + Phase2.strings[phase2Method]));
+                break;
+            case Phase2.GTC:
+                mFields.put(PHASE2_KEY, convertToQuotedString(
+                        Phase2.EAP_PREFIX + Phase2.strings[phase2Method]));
                 break;
             default:
                 throw new IllegalArgumentException("Unknown Phase 2 method");
@@ -372,8 +376,11 @@ public class WifiEnterpriseConfig implements Parcelable {
      * */
     public int getPhase2Method() {
         String phase2Method = removeDoubleQuotes(mFields.get(PHASE2_KEY));
-        // Remove auth= prefix
-        if (phase2Method.startsWith(Phase2.PREFIX)) {
+        if (phase2Method.startsWith(Phase2.EAP_PREFIX)) {
+            // Remove autheap= eap_prefix
+            phase2Method = phase2Method.substring(Phase2.EAP_PREFIX.length());
+        } else if (phase2Method.startsWith(Phase2.PREFIX)) {
+            // Remove auth= prefix
             phase2Method = phase2Method.substring(Phase2.PREFIX.length());
         }
         return getStringIndex(Phase2.strings, phase2Method, Phase2.NONE);

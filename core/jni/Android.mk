@@ -28,6 +28,10 @@ LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 
 LOCAL_CFLAGS += -DU_USING_ICU_NAMESPACE=0
 
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
+endif
+
 LOCAL_SRC_FILES:= \
     AndroidRuntime.cpp \
     com_android_internal_content_NativeLibraryHelper.cpp \
@@ -135,6 +139,7 @@ LOCAL_SRC_FILES:= \
     android/graphics/Xfermode.cpp \
     android/graphics/YuvToJpegEncoder.cpp \
     android/graphics/pdf/PdfDocument.cpp \
+    android/graphics/pdf/PdfLibrary.cpp \
     android/graphics/pdf/PdfEditor.cpp \
     android/graphics/pdf/PdfRenderer.cpp \
     android_media_AudioRecord.cpp \
@@ -257,6 +262,21 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_SHARED_LIBRARIES += \
     libhwui \
     libdl
+
+ifeq ($(PRC_COMPATIBILITY_PACKAGE),true)
+    LOCAL_CFLAGS += -D_PRC_COMPATIBILITY_PACKAGE_
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/abipicker
+    LOCAL_SRC_FILES += abipicker/ABIPicker.cpp
+    LOCAL_POST_INSTALL_CMD := $(hide) \
+        mkdir -p $(TARGET_OUT_VENDOR)/etc/misc/; \
+        cp -f $(LOCAL_PATH)/abipicker/OEMWhiteList $(TARGET_OUT_VENDOR)/etc/misc/.OEMWhiteList; \
+        cp -f $(LOCAL_PATH)/abipicker/OEMBlackList $(TARGET_OUT_VENDOR)/etc/misc/.OEMBlackList; \
+        cp -f $(LOCAL_PATH)/abipicker/ThirdPartySO $(TARGET_OUT_VENDOR)/etc/misc/.ThirdPartySO
+endif
+
+ifeq ($(COMPATIBILITY_ENHANCEMENT_PACKAGE), true)
+    LOCAL_CFLAGS += -D_COMPATIBILITY_ENHANCEMENT_PACKAGE_
+endif
 
 # we need to access the private Bionic header
 # <bionic_tls.h> in com_google_android_gles_jni_GLImpl.cpp

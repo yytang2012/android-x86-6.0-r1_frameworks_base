@@ -361,6 +361,25 @@ public final class BluetoothAdapter {
     public static final String EXTRA_LOCAL_NAME = "android.bluetooth.adapter.extra.LOCAL_NAME";
 
     /**
+     * @hide
+     * Broadcast Action: The local Bluetooth adapter has changed its friendly
+     * Bluetooth name.
+     * <p>This name is visible to remote Bluetooth devices.
+     * <p>Always contains the extra field {@link #EXTRA_LOCAL_ADDRESS} containing
+     * the name.
+     * <p>Requires {@link android.Manifest.permission#BLUETOOTH} to receive.
+     */
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    public static final String ACTION_LOCAL_ADDRESS_CHANGED =
+            "android.bluetooth.adapter.action.LOCAL_ADDRESS_CHANGED";
+    /**
+     * @hide
+     * Used as a String extra field in {@link #ACTION_LOCAL_ADDRESS_CHANGED}
+     * intents to request the local Bluetooth name.
+     */
+    public static final String EXTRA_LOCAL_ADDRESS = "android.bluetooth.adapter.extra.LOCAL_ADDRESS";
+
+    /**
      * Intent used to broadcast the change in connection state of the local
      * Bluetooth adapter to a profile of the remote device. When the adapter is
      * not connected to any profiles of any remote devices and it attempts a

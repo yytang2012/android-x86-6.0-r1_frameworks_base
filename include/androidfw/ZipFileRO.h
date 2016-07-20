@@ -99,6 +99,14 @@ public:
      */
     ZipEntryRO nextEntry(void* cookie);
 
+#ifdef ZIP_NO_INTEGRITY
+    /**
+     * Return the next entry in iteration order, or NULL if there are no more
+     * entries in this archive, just from RDS without integrity check.
+     */
+    ZipEntryRO nextEntryNoIntegrity(void* cookie);
+#endif
+
     void endIteration(void* cookie);
 
     void releaseEntry(ZipEntryRO entry) const;

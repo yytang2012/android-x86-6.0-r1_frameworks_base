@@ -66,7 +66,13 @@ public class Watchdog extends Thread {
     public static final String[] NATIVE_STACKS_OF_INTEREST = new String[] {
         "/system/bin/mediaserver",
         "/system/bin/sdcard",
-        "/system/bin/surfaceflinger"
+        "/system/bin/surfaceflinger",
+        "/system/bin/sensorhubd",
+        "/system/bin/servicemanager",
+        "/system/bin/drmserver",
+        "/system/bin/gpsd",
+        "/sbin/healthd",
+        "/system/bin/netd"
     };
 
     static Watchdog sWatchdog;

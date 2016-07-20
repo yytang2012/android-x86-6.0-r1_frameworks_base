@@ -10,6 +10,7 @@ import android.app.UiAutomationConnection;
 import android.content.Intent;
 import android.os.HandlerThread;
 import android.os.RemoteException;
+import android.util.Log;
 
 /**
  * @hide
@@ -17,6 +18,8 @@ import android.os.RemoteException;
 public class UiAutomationShellWrapper {
 
     private static final String HANDLER_THREAD_NAME = "UiAutomatorHandlerThread";
+    private static final String TAG = "UiAutomationShellWrapper";
+    private static final int HANDLER_THREAD_TIMEOUT = 20000;
 
     private final HandlerThread mHandlerThread = new HandlerThread(HANDLER_THREAD_NAME);
 
@@ -65,6 +68,12 @@ public class UiAutomationShellWrapper {
         }
         mUiAutomation.disconnect();
         mHandlerThread.quit();
+        try {
+            mHandlerThread.join(HANDLER_THREAD_TIMEOUT);
+        } catch (InterruptedException e) {
+            // Too many things to do on HandlerThread
+            Log.e(TAG, "too many things to do on HandlerThread");
+        }
     }
 
     public UiAutomation getUiAutomation() {
